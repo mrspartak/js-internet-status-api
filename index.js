@@ -30,45 +30,45 @@ Promise.config({
 let dataFile = './data/state.json'
 
 let CONNECTIONS_LOST = [], lastStatus, currentStatus, startTs, finishTs
+let saveCounter = 0
 
 ;(async () => {
 	let state = await getState()
 	if(state && state.success) 
 		({CONNECTIONS_LOST, lastStatus, currentStatus, startTs, finishTs} = state)
-})()
 
-let saveCounter = 0
-setInterval(async () => {
-	saveCounter++
-	let connected = await check()
-	connected = connected === false ? false : true
-	currentStatus = connected === false ? false : true
+	setInterval(async () => {
+		saveCounter++
+		let connected = await check()
+		connected = connected === false ? false : true
+		currentStatus = connected === false ? false : true
 
-	if(lastStatus !== connected) {
-		lastStatus = connected
-		
-		//become disabled
-		if(connected === false) {
-			console.log('CONNECTION LOST')
-			startTs = now()
-			await saveState()
-		} else if(startTs) {
-			console.log('CONNECTED')
-			finishTs = now()
+		if(lastStatus !== connected) {
+			lastStatus = connected
+			
+			//become disabled
+			if(connected === false) {
+				console.log('CONNECTION LOST')
+				startTs = now()
+				await saveState()
+			} else if(startTs) {
+				console.log('CONNECTED')
+				finishTs = now()
 
-			CONNECTIONS_LOST.push({
-				start: startTs,
-				finish: finishTs,
-				duration: finishTs - startTs
-			})
+				CONNECTIONS_LOST.push({
+					start: startTs,
+					finish: finishTs,
+					duration: finishTs - startTs
+				})
+				await saveState()
+			}
+		}
+
+		if(saveCounter * INTERVAL >= 60 * 1000) {
 			await saveState()
 		}
-	}
-
-	if(saveCounter * INTERVAL >= 60 * 1000) {
-		await saveState()
-	}
-}, INTERVAL)
+	}, INTERVAL)
+})()
 
 
 const server = http.createServer((request, response) => {
@@ -94,6 +94,7 @@ async function getState() {
 		let data = await fsPromise.readFile(dataFile)
 		return JSON.parse(data)
 	} catch(ex) {
+		console.log('getState.ex', ex.message)
 		return {}
 	}
 }
