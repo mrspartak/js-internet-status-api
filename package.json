@@ -1,0 +1,14 @@
+{
+  "name": "internet-connected",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Spartak <iam@spartak.io> (https://spartak.io/)",
+  "license": "MIT",
+  "dependencies": {
+    "bluebird": "^3.7.2",
+  }
+}
