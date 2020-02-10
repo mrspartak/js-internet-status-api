@@ -75,6 +75,7 @@ const server = http.createServer((request, response) => {
 	if(request.url == '/') {
 		response.end(JSON.stringify({
 			success: true,
+			serverTS: now(),
 			currentStatus,
 			lastTs: (startTs ? now() - startTs : false),
 			archive: CONNECTIONS_LOST
