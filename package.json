@@ -9,6 +9,6 @@
   "author": "Spartak <iam@spartak.io> (https://spartak.io/)",
   "license": "MIT",
   "dependencies": {
-    "bluebird": "^3.7.2",
+    "bluebird": "^3.7.2"
   }
 }
