@@ -2,18 +2,44 @@ const url = require('url');
 const net = require('net');
 const Promise = require('bluebird');
 const http = require('http')
+const fsPromise = require('fs').promises
 
 const INTERVAL = +process.env.INTERVAL * 1000 || 10000;
 const PORT = +process.env.PORT || 3010;
+
+const CHECK_WEBSITE = process.env.CHECK_WEBSITE || 'https://google.com';
+const CHECK_TIMEOUT = +process.env.CHECK_TIMEOUT * 1000 || 5000;
+const CHECK_RETRIES = +process.env.CHECK_RETRIES || 2;
+
+//hours
+const RELEVANCE_TIMEOUT = +process.env.RELEVANCE_TIMEOUT * 60 * 60 || 24 * 60 * 60;
+
+console.log('APP_CONFIG', {
+	INTERVAL,
+	PORT,
+	CHECK_WEBSITE,
+	CHECK_TIMEOUT,
+	CHECK_RETRIES,
+	RELEVANCE_TIMEOUT
+})
 
 Promise.config({
 	cancellation: true
 });
 
-let CONNECTIONS_LOST = []
+let dataFile = './data/state.json'
 
-let lastStatus, currentStatus, startTs, finishTs
+let CONNECTIONS_LOST = [], lastStatus, currentStatus, startTs, finishTs
+
+;(async () => {
+	let state = await getState()
+	if(state && state.success) 
+		({CONNECTIONS_LOST, lastStatus, currentStatus, startTs, finishTs} = state)
+})()
+
+let saveCounter = 0
 setInterval(async () => {
+	saveCounter++
 	let connected = await check()
 	connected = connected === false ? false : true
 	currentStatus = connected === false ? false : true
@@ -25,6 +51,7 @@ setInterval(async () => {
 		if(connected === false) {
 			console.log('CONNECTION LOST')
 			startTs = now()
+			await saveState()
 		} else if(startTs) {
 			console.log('CONNECTED')
 			finishTs = now()
@@ -34,7 +61,12 @@ setInterval(async () => {
 				finish: finishTs,
 				duration: finishTs - startTs
 			})
+			await saveState()
 		}
+	}
+	await saveState()
+	if(saveCounter * INTERVAL >= 60 * 1000) {
+		await saveState()
 	}
 }, INTERVAL)
 
@@ -57,6 +89,22 @@ server.listen(PORT, (err) => {
 	console.log(`server is listening on ${PORT}`)
 })
 
+async function getState() {
+	try {
+		let data = await fsPromise.readFile(dataFile)
+		return JSON.parse(data)
+	} catch(ex) {
+		return {}
+	}
+}
+
+async function saveState() {
+	saveCounter = 0
+
+	CONNECTIONS_LOST = CONNECTIONS_LOST.filter(data => data.start > now() - RELEVANCE_TIMEOUT)
+	await fsPromise.writeFile(dataFile, JSON.stringify({success:true, CONNECTIONS_LOST, lastStatus, currentStatus, startTs, finishTs}))
+}
+
 function now() {
 	return parseInt((new Date().getTime())/1000)
 }
@@ -64,8 +112,9 @@ function now() {
 async function check() {
 	try {
 		return await checkInternetConnected({
-			timeout: 2000,
-			retries: 2
+			timeout: CHECK_TIMEOUT,
+			retries: CHECK_RETRIES,
+			domain: CHECK_WEBSITE
 		})
 	} catch(ex) {
 		return false
