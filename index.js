@@ -64,7 +64,7 @@ setInterval(async () => {
 			await saveState()
 		}
 	}
-	await saveState()
+
 	if(saveCounter * INTERVAL >= 60 * 1000) {
 		await saveState()
 	}
