@@ -71,8 +71,12 @@ let saveCounter = 0
 })()
 
 
-const server = http.createServer((request, response) => {
+const server = http.createServer(async (request, response) => {
+	response.setHeader("Access-Control-Allow-Origin", "*");
+	response.setHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+	
 	if(request.url == '/') {
+		response.setHeader('Content-Type', 'application/json');
 		response.end(JSON.stringify({
 			success: true,
 			serverTS: now(),
@@ -80,6 +84,12 @@ const server = http.createServer((request, response) => {
 			lastTs: (startTs ? now() - startTs : false),
 			archive: CONNECTIONS_LOST
 		}))
+	} else if(request.url == '/graph.html') {
+		response.setHeader('Content-Type', 'text/html');
+		response.end(await fsPromise.readFile('./public/graph.html'))
+	} else if(request.url == '/vue-fusioncharts.js') {
+		response.setHeader('Content-Type', 'text/javascript');
+		response.end(await fsPromise.readFile('./public/vue-fusioncharts.js'))
 	} else {
 		response.end('')
 	}    

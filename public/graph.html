@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Js connection check GRAPHS</title>
+	<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+	<script src="https://unpkg.com/fusioncharts@3.15.0-sr.1/fusioncharts.js"></script>
+	<script src="https://unpkg.com/fusioncharts@3.15.0-sr.1/fusioncharts.charts.js"></script>
+	<script src="https://rawgit.com/fusioncharts/vue-fusioncharts/feature/plugin-development/dist/vue-fusioncharts.js"></script>
+	<script src="https://unpkg.com/fusioncharts@3.15.0-sr.1/themes/fusioncharts.theme.fint.js"></script>
+	<script src="https://unpkg.com/axios@0.2.1/dist/axios.js"></script>
+	<style type="text/css">
+	.source_wrapper {
+		display: flex;
+		flex-flow: row wrap;
+	}
+	.source_box {
+		border: 1px solid black;
+		width: 45%;
+		margin: 1%;
+		padding: 1%;
+	}
+	</style>
+</head>
+<body>
+	<div id="app">
+		<div class="source_wrapper">
+			<div v-for="(source, index) in sources" v-bind:key="index" class="source_box">
+				<h2>
+					Source: {{ source.name }} <small>{{ source.url }}</small>
+					<button @click="delete_source(index)">Delete source</button>
+				</h2>
+				<h3 v-if="source.data">
+					Connection: {{ source.data.currentStatus ? 'true' : 'false' }} || 
+					Last disconnect: {{ source.data.lastTs }} sec
+					<span v-if="source.data.updatedDiff"> || Last updated: {{ source.data.updatedDiff }} sec</span>
+				</h3>
+				<fusioncharts v-if="source.data && source.data.chart" type="column2d" width="100%" height="350" :dataSource="source.data.chart"></fusioncharts>
+			</div>
+		</div>
+
+		<div>
+			<input type="text" v-model="form.source" placeholder="Source url">
+			<input type="text" v-model="form.name" placeholder="Source name">
+			<button @click="add_source()">Add source</button>
+		</div>
+	</div>
+
+<script type="text/javascript">
+document.addEventListener("DOMContentLoaded", function(){
+Vue.use(VueFusionCharts);
+
+var jsonify = res => res.json();
+
+var app = new Vue({
+	el: '#app',
+	data: {
+		sources: [{url: '/', name: 'local', data: null}],
+		form: {
+			source: '',
+			name: ''
+		}
+	},
+	mounted () {
+		let sources = localStorage.getItem('sources')
+		if(sources) this.sources = JSON.parse(sources)
+
+		this.getData()
+
+		setInterval(this.getData, 10000)
+		setInterval(() => {
+			this.sources.forEach((source, i) => {
+				if(source.data && source.data.updatedTs) {
+					source.data.updatedDiff = parseInt(new Date().getTime()/1000) - source.data.updatedTs
+					Vue.set(this.sources, i, source)
+				}
+			})
+		}, 1000)
+	},
+	methods: {
+		async getData() {
+			await asyncForEach(this.sources, async(source, i) => {
+				try {
+					let data = await fetch(source.url).then(jsonify)
+					source.data = data
+					source.data.updatedTs = parseInt(new Date().getTime()/1000)
+
+					let chart = []
+					data.archive.forEach((item) => {
+						let diff = data.serverTS - item.start
+						if(diff > 60 * 60 * 24) diff = ( diff / (60 * 60 * 24) ).toFixed(1) +'d'
+						else if(diff > 60 * 60) diff = ( diff / (60 * 60) ).toFixed(1) +'h'
+						else if(diff > 60) diff = ( diff / 60 ).toFixed(1) +'m'
+						else diff = diff +'s'	
+
+						chart.push({
+							"label": diff,
+							"value": item.duration
+						})
+					})
+					source.data.chart = {
+						chart: {
+							caption: "Disconnect duration",
+							xAxisName: "Disconnects",
+							yAxisName: "Duration (sec)",
+							theme: "fusion"
+						},
+						data: chart
+					}
+
+					Vue.set(this.sources, i, source)
+				} catch(ex) {
+					console.log(ex)
+				}
+			})
+
+			this.save_state()
+		},
+		add_source() {
+			if(!this.form.source || this.form.source.length == 0) return alert('Enter source')
+			this.sources.push({url: this.form.source, name: this.form.name, data: null})
+			this.form.source = ''
+			this.form.name = ''
+
+			this.save_state()
+		},
+		delete_source(index) {
+			this.sources.splice(index, 1);
+
+			this.save_state()
+		},
+		save_state() {
+			localStorage.setItem('sources', JSON.stringify(this.sources))
+		}
+	}
+})
+
+async function asyncForEach(array, callback) {
+  for (let index = 0; index < array.length; index++) {
+    await callback(array[index], index, array);
+  }
+}
+
+});
+</script>
+</body>
+</html>
