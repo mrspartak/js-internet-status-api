@@ -26,3 +26,20 @@ Return JSON with current status and disconnects history
 ## API
 
     #just GET / request
+
+    #sample response
+```
+{
+	success: true,
+	serverTS: 1581347597,
+	currentStatus: true, //current connections status: true|false
+	lastTs: 4861, //last disconnect seconds ago
+	archive: [ //history of disconnects
+		{
+			start: 1581342736,
+			finish: 1581342756,
+			duration: 20
+		}
+	]
+}
+```
